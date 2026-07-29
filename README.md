@@ -20,6 +20,8 @@ Cleaning and overlapping chunks
         ↓
 Semantic or hashing embeddings + in-memory cosine retrieval
         ↓
+Passage-to-passage conflict detection
+        ↓
 Extractive answer generator
         ↓
 Atomic claim extraction
@@ -91,6 +93,11 @@ Set `verification_provider` to `nli` to classify every generated claim as
 `supported`, `contradicted`, or `insufficient_evidence`. The default NLI model
 is `cross-encoder/nli-deberta-v3-small`. Use `lexical` for the fast,
 dependency-free test baseline.
+
+When `conflict_detection_enabled` is true, retrieved sentences from different
+chunks are compared before generation. The trust report includes the maximum
+`conflict_score` and every sentence pair above
+`minimum_conflict_confidence`. `maximum_conflict_pairs` bounds runtime.
 
 The baseline risk is:
 

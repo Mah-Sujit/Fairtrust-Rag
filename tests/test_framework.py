@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from fairtrust_rag import FairTrustRAG, Settings
+from fairtrust_rag.conflicts import NLIConflictDetector
 from fairtrust_rag.ingestion import chunk_documents
 from fairtrust_rag.models import Document
 from fairtrust_rag.models import Chunk, SearchResult
@@ -61,6 +62,42 @@ class NLIVerificationTests(unittest.TestCase):
             [result.status for result in results],
             ["supported", "contradicted", "insufficient_evidence"],
         )
+
+
+class ConflictDetectionTests(unittest.TestCase):
+    def test_contradictory_passages_are_reported(self):
+        evidence = [
+            SearchResult(
+                Chunk("c1", "d1", "The treatment improved outcomes.", "a.txt"),
+                0.9,
+            ),
+            SearchResult(
+                Chunk("c2", "d2", "The treatment did not improve outcomes.", "b.txt"),
+                0.8,
+            ),
+        ]
+        detector = NLIConflictDetector(
+            cross_encoder=FakeCrossEncoder([[3.0, 0.1, 0.2]])
+        )
+        score, conflicts = detector.detect(evidence)
+        self.assertGreater(score, 0.8)
+        self.assertEqual(len(conflicts), 1)
+        self.assertEqual(conflicts[0].left_chunk_id, "c1")
+        self.assertEqual(conflicts[0].right_chunk_id, "c2")
+
+    def test_agreeing_passages_have_no_reported_conflict(self):
+        evidence = [
+            SearchResult(Chunk("c1", "d1", "Paris is in France.", "a.txt"), 0.9),
+            SearchResult(
+                Chunk("c2", "d2", "France contains the city of Paris.", "b.txt"),
+                0.8,
+            ),
+        ]
+        detector = NLIConflictDetector(
+            cross_encoder=FakeCrossEncoder([[0.1, 3.0, 0.2]])
+        )
+        _, conflicts = detector.detect(evidence)
+        self.assertEqual(conflicts, [])
 
 
 class PipelineTests(unittest.TestCase):

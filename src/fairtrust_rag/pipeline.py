@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 from .config import Settings
+from .conflicts import NLIConflictDetector, NoOpConflictDetector
 from .embeddings import HashingEmbedder, SentenceTransformerEmbedder
 from .generation import AnswerGenerator, ExtractiveAnswerGenerator
 from .ingestion import chunk_documents, load_documents
@@ -35,6 +36,16 @@ class FairTrustRAG:
             self.verifier = LexicalEvidenceVerifier(
                 self.settings.minimum_claim_support
             )
+        if self.settings.conflict_detection_enabled:
+            shared_model = getattr(self.verifier, "model", None)
+            self.conflict_detector = NLIConflictDetector(
+                self.settings.verification_model,
+                self.settings.minimum_conflict_confidence,
+                self.settings.maximum_conflict_pairs,
+                cross_encoder=shared_model,
+            )
+        else:
+            self.conflict_detector = NoOpConflictDetector()
 
     def ingest(self, path: Union[str, Path]) -> int:
         documents = load_documents(path)
@@ -48,6 +59,7 @@ class FairTrustRAG:
         if not question.strip():
             raise ValueError("question cannot be empty")
         retrieved = self.store.search(question, self.settings.top_k)
+        conflict_score, conflicts = self.conflict_detector.detect(retrieved)
         answer = self.generator.generate(question, retrieved)
         claims = self.verifier.verify(extract_claims(answer.text), retrieved)
         risk = calculate_risk(
@@ -74,4 +86,6 @@ class FairTrustRAG:
             citations=answer.citations if decision == "answer" else [],
             retrieved=retrieved,
             claims=claims,
+            conflict_score=conflict_score,
+            conflicts=conflicts,
         )
