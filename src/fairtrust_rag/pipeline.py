@@ -10,7 +10,7 @@ from .ingestion import chunk_documents, load_documents
 from .models import TrustReport
 from .retrieval import InMemoryVectorStore
 from .trust import apply_safety_gates, calculate_risk, decide
-from .verification import LexicalEvidenceVerifier, extract_claims
+from .verification import LexicalEvidenceVerifier, NLIEvidenceVerifier, extract_claims
 
 
 class FairTrustRAG:
@@ -26,7 +26,15 @@ class FairTrustRAG:
             embedder = HashingEmbedder(self.settings.embedding_dimensions)
         self.store = InMemoryVectorStore(embedder)
         self.generator = generator or ExtractiveAnswerGenerator()
-        self.verifier = LexicalEvidenceVerifier(self.settings.minimum_claim_support)
+        if self.settings.verification_provider == "nli":
+            self.verifier = NLIEvidenceVerifier(
+                self.settings.verification_model,
+                self.settings.minimum_nli_confidence,
+            )
+        else:
+            self.verifier = LexicalEvidenceVerifier(
+                self.settings.minimum_claim_support
+            )
 
     def ingest(self, path: Union[str, Path]) -> int:
         documents = load_documents(path)

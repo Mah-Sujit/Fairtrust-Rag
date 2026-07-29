@@ -5,6 +5,8 @@ from pathlib import Path
 from fairtrust_rag import FairTrustRAG, Settings
 from fairtrust_rag.ingestion import chunk_documents
 from fairtrust_rag.models import Document
+from fairtrust_rag.models import Chunk, SearchResult
+from fairtrust_rag.verification import NLIEvidenceVerifier
 
 
 class IngestionTests(unittest.TestCase):
@@ -19,6 +21,46 @@ class ConfigurationTests(unittest.TestCase):
     def test_unknown_embedding_provider_is_rejected(self):
         with self.assertRaises(ValueError):
             Settings(embedding_provider="unknown")
+
+    def test_unknown_verification_provider_is_rejected(self):
+        with self.assertRaises(ValueError):
+            Settings(verification_provider="unknown")
+
+
+class FakeCrossEncoder:
+    def __init__(self, outputs):
+        self.outputs = iter(outputs)
+
+    def predict(self, pairs):
+        return [next(self.outputs) for _ in pairs]
+
+
+class NLIVerificationTests(unittest.TestCase):
+    def setUp(self):
+        chunk = Chunk("c1", "d1", "Paris is the capital of France.", "facts.txt")
+        self.evidence = [SearchResult(chunk, 0.9)]
+
+    def test_three_way_classification(self):
+        model = FakeCrossEncoder(
+            [
+                [0.1, 3.0, 0.2],
+                [3.0, 0.1, 0.2],
+                [0.1, 0.2, 3.0],
+            ]
+        )
+        verifier = NLIEvidenceVerifier(cross_encoder=model)
+        results = verifier.verify(
+            [
+                "Paris is France's capital.",
+                "Berlin is France's capital.",
+                "Paris has ten million residents.",
+            ],
+            self.evidence,
+        )
+        self.assertEqual(
+            [result.status for result in results],
+            ["supported", "contradicted", "insufficient_evidence"],
+        )
 
 
 class PipelineTests(unittest.TestCase):
