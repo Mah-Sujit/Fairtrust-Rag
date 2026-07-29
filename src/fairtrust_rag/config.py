@@ -13,6 +13,9 @@ class Settings:
     embedding_provider: str = "hashing"
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     embedding_dimensions: int = 384
+    verification_provider: str = "lexical"
+    verification_model: str = "cross-encoder/nli-deberta-v3-small"
+    minimum_nli_confidence: float = 0.50
     top_k: int = 3
     minimum_retrieval_score: float = 0.08
     minimum_claim_support: float = 0.18
@@ -36,6 +39,10 @@ class Settings:
             raise ValueError(
                 "embedding_provider must be 'hashing' or 'sentence_transformers'"
             )
+        if self.verification_provider not in {"lexical", "nli"}:
+            raise ValueError("verification_provider must be 'lexical' or 'nli'")
+        if not 0 <= self.minimum_nli_confidence <= 1:
+            raise ValueError("minimum_nli_confidence must be between 0 and 1")
         if not 0 <= self.maximum_answer_risk <= 1:
             raise ValueError("maximum_answer_risk must be between 0 and 1")
         if abs(sum(self.risk_weights.values()) - 1.0) > 1e-6:

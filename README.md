@@ -24,7 +24,7 @@ Extractive answer generator
         ↓
 Atomic claim extraction
         ↓
-Lexical evidence verification
+Three-way NLI or lexical evidence verification
         ↓
 Weighted risk score
         ↓
@@ -87,6 +87,11 @@ decision thresholds. Set `embedding_provider` to `sentence_transformers` for
 semantic retrieval or `hashing` for the dependency-free baseline. The risk
 weights must add up to `1.0`.
 
+Set `verification_provider` to `nli` to classify every generated claim as
+`supported`, `contradicted`, or `insufficient_evidence`. The default NLI model
+is `cross-encoder/nli-deberta-v3-small`. Use `lexical` for the fast,
+dependency-free test baseline.
+
 The baseline risk is:
 
 ```text
@@ -123,9 +128,8 @@ Replace one baseline component at a time and evaluate each change:
 1. Evaluate semantic retrieval against the hashing baseline and add a
    persistent FAISS index.
 2. Add an open-source LLM adapter (for example, Ollama or Transformers).
-3. Replace lexical verification with a three-way NLI model: supported,
-   contradicted, or insufficient evidence.
-4. Add evidence-conflict and citation-entailment checks.
+3. Calibrate the three-way NLI verifier on domain-specific labelled claims.
+4. Add passage-to-passage evidence-conflict and citation-entailment checks.
 5. Learn and calibrate risk on labelled validation data.
 6. Add retrieve-again and show-conflict controller actions.
 7. Add group-level reliability, coverage, and abstention evaluation.
