@@ -12,6 +12,7 @@ from fairtrust_rag.evaluation import (
     run_evaluation,
     summarize_results,
 )
+from fairtrust_rag.dataset_converters import convert_hotpotqa
 from fairtrust_rag.generation import OllamaAnswerGenerator
 from fairtrust_rag.fairness import generate_counterfactual_cases
 from fairtrust_rag.ingestion import chunk_documents
@@ -330,6 +331,45 @@ class EvaluationTests(unittest.TestCase):
     def test_counterfactual_template_requires_placeholder(self):
         with self.assertRaises(ValueError):
             generate_counterfactual_cases("bad", "No placeholder", ["a", "b"])
+
+
+class DatasetConverterTests(unittest.TestCase):
+    def test_hotpotqa_conversion_preserves_evidence_provenance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "hotpot.json"
+            source.write_text(
+                json.dumps(
+                    [
+                        {
+                            "_id": "abc123",
+                            "question": "Where is Paris?",
+                            "answer": "France",
+                            "supporting_facts": [["Paris", 0]],
+                            "context": [
+                                ["Paris", ["Paris is in France."]],
+                                ["Berlin", ["Berlin is in Germany."]],
+                            ],
+                            "type": "bridge",
+                            "level": "easy",
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            documents = root / "documents"
+            cases_path = root / "cases.jsonl"
+            cases, document_count = convert_hotpotqa(
+                source, documents, cases_path, sample_size=1, seed=42
+            )
+            converted = json.loads(cases_path.read_text(encoding="utf-8"))
+            self.assertEqual(cases, 1)
+            self.assertEqual(document_count, 2)
+            self.assertEqual(converted["source_dataset"], "hotpotqa")
+            self.assertEqual(
+                converted["supporting_documents"],
+                ["hotpotqa/abc123_00.txt"],
+            )
 
 
 if __name__ == "__main__":

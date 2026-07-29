@@ -2,7 +2,7 @@
 
 import json
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Union
 
@@ -16,6 +16,9 @@ class EvaluationCase:
     expected_decision: Optional[str] = None
     gold_answer: Optional[str] = None
     group: str = "all"
+    source_dataset: Optional[str] = None
+    evidence_condition: Optional[str] = None
+    supporting_documents: List[str] = field(default_factory=list)
 
 
 def load_cases(path: Union[str, Path]) -> List[EvaluationCase]:
@@ -161,6 +164,9 @@ def run_evaluation(
                 "risk_score": report.risk_score,
                 "conflict_score": report.conflict_score,
                 "retrieval_attempts": report.retrieval_attempts,
+                "source_dataset": case.source_dataset,
+                "evidence_condition": case.evidence_condition,
+                "supporting_documents": case.supporting_documents,
             }
         )
     return {

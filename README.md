@@ -111,6 +111,26 @@ The report includes answer accuracy, decision accuracy, coverage,
 hallucination rate, abstention rate, conflict rate, average risk, calibration
 error, group-level metrics, fairness gaps, and worst-group performance.
 
+## Convert HotpotQA
+
+Keep original public datasets under the ignored `data/external/` directory.
+Create a deterministic 50-case HotpotQA pilot with:
+
+```bash
+fairtrust-convert-hotpotqa \
+  --input data/external/hotpotqa/hotpot_dev_distractor_v1.json \
+  --documents-dir data/benchmarks/hotpotqa/documents \
+  --cases data/benchmarks/hotpotqa/cases.jsonl \
+  --sample-size 50 \
+  --seed 42
+```
+
+The converter creates the ten distractor-setting evidence passages for every
+sampled question and records the original ID, source dataset, evidence
+condition, and gold supporting-document filenames. Do not tune on the same
+sample later used for final testing. Original and generated benchmark data are
+ignored by Git; regenerate them from the documented source and seed.
+
 You can also run it without installation:
 
 ```bash
