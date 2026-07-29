@@ -42,6 +42,15 @@ class ClaimVerification:
 
 
 @dataclass(frozen=True)
+class EvidenceConflict:
+    left_chunk_id: str
+    right_chunk_id: str
+    left_text: str
+    right_text: str
+    confidence: float
+
+
+@dataclass(frozen=True)
 class TrustReport:
     question: str
     decision: str
@@ -51,6 +60,8 @@ class TrustReport:
     citations: List[str]
     retrieved: List[SearchResult]
     claims: List[ClaimVerification]
+    conflict_score: float
+    conflicts: List[EvidenceConflict]
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -60,6 +71,17 @@ class TrustReport:
             "risk_score": round(self.risk_score, 4),
             "reason": self.reason,
             "citations": self.citations,
+            "conflict_score": round(self.conflict_score, 4),
+            "conflicts": [
+                {
+                    "left_chunk_id": item.left_chunk_id,
+                    "right_chunk_id": item.right_chunk_id,
+                    "left_text": item.left_text,
+                    "right_text": item.right_text,
+                    "confidence": round(item.confidence, 4),
+                }
+                for item in self.conflicts
+            ],
             "retrieved": [
                 {
                     "chunk_id": item.chunk.chunk_id,
@@ -79,4 +101,3 @@ class TrustReport:
                 for item in self.claims
             ],
         }
-

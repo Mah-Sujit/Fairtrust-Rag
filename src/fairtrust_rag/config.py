@@ -16,6 +16,9 @@ class Settings:
     verification_provider: str = "lexical"
     verification_model: str = "cross-encoder/nli-deberta-v3-small"
     minimum_nli_confidence: float = 0.50
+    conflict_detection_enabled: bool = False
+    minimum_conflict_confidence: float = 0.80
+    maximum_conflict_pairs: int = 100
     top_k: int = 3
     minimum_retrieval_score: float = 0.08
     minimum_claim_support: float = 0.18
@@ -43,6 +46,10 @@ class Settings:
             raise ValueError("verification_provider must be 'lexical' or 'nli'")
         if not 0 <= self.minimum_nli_confidence <= 1:
             raise ValueError("minimum_nli_confidence must be between 0 and 1")
+        if not 0 <= self.minimum_conflict_confidence <= 1:
+            raise ValueError("minimum_conflict_confidence must be between 0 and 1")
+        if self.maximum_conflict_pairs <= 0:
+            raise ValueError("maximum_conflict_pairs must be positive")
         if not 0 <= self.maximum_answer_risk <= 1:
             raise ValueError("maximum_answer_risk must be between 0 and 1")
         if abs(sum(self.risk_weights.values()) - 1.0) > 1e-6:
