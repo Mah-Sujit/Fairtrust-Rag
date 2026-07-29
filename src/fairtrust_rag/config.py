@@ -18,7 +18,7 @@ class Settings:
     minimum_nli_confidence: float = 0.50
     conflict_detection_enabled: bool = False
     minimum_conflict_confidence: float = 0.80
-    minimum_conflict_overlap: float = 0.20
+    minimum_conflict_overlap: float = 0.40
     maximum_conflict_pairs: int = 100
     retrieval_retry_enabled: bool = False
     retry_top_k: int = 8

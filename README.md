@@ -127,7 +127,9 @@ fairtrust-convert-hotpotqa \
 
 The converter creates the ten distractor-setting evidence passages for every
 sampled question and records the original ID, source dataset, evidence
-condition, and gold supporting-document filenames. Do not tune on the same
+condition, all ten candidate documents, and gold supporting-document
+filenames. Evaluation restricts retrieval to each question's candidate set,
+matching the HotpotQA distractor protocol. Do not tune on the same
 sample later used for final testing. Original and generated benchmark data are
 ignored by Git; regenerate them from the documented source and seed.
 

@@ -29,6 +29,7 @@ class NLIConflictDetector:
         minimum_confidence: float = 0.80,
         minimum_lexical_overlap: float = 0.20,
         max_pairs: int = 100,
+        minimum_evidence_score: float = 0.0,
         cross_encoder: Optional[Any] = None,
     ) -> None:
         if not 0 <= minimum_confidence <= 1:
@@ -37,6 +38,8 @@ class NLIConflictDetector:
             raise ValueError("max_pairs must be positive")
         if not 0 <= minimum_lexical_overlap <= 1:
             raise ValueError("minimum_lexical_overlap must be between 0 and 1")
+        if not 0 <= minimum_evidence_score <= 1:
+            raise ValueError("minimum_evidence_score must be between 0 and 1")
         if cross_encoder is None:
             try:
                 from sentence_transformers import CrossEncoder
@@ -49,6 +52,7 @@ class NLIConflictDetector:
         self.minimum_confidence = minimum_confidence
         self.minimum_lexical_overlap = minimum_lexical_overlap
         self.max_pairs = max_pairs
+        self.minimum_evidence_score = minimum_evidence_score
 
     @staticmethod
     def _contradiction_probability(scores: Sequence[float]) -> float:
@@ -80,6 +84,10 @@ class NLIConflictDetector:
     def detect(
         self, evidence: Sequence[SearchResult]
     ) -> Tuple[float, List[EvidenceConflict]]:
+        evidence = [
+            item for item in evidence
+            if item.score >= self.minimum_evidence_score
+        ]
         candidates = []
         for left_index, left in enumerate(evidence):
             for right in evidence[left_index + 1 :]:

@@ -35,6 +35,7 @@ def convert_hotpotqa(
     for record in selected:
         case_id = str(record["_id"])
         title_to_files: Dict[str, List[str]] = {}
+        candidate_documents = []
         for context_index, context in enumerate(record["context"]):
             title, sentences = context
             filename = f"{case_id}_{context_index:02d}.txt"
@@ -42,6 +43,7 @@ def convert_hotpotqa(
             text = f"Title: {title}\n\n" + " ".join(sentences).strip()
             (output_documents / filename).write_text(text + "\n", encoding="utf-8")
             title_to_files.setdefault(title, []).append(relative_name)
+            candidate_documents.append(relative_name)
             document_count += 1
 
         supporting_titles = {
@@ -62,6 +64,7 @@ def convert_hotpotqa(
                 source_dataset="hotpotqa",
                 evidence_condition="distractor",
                 supporting_documents=supporting_documents,
+                candidate_documents=sorted(candidate_documents),
             )
         )
 

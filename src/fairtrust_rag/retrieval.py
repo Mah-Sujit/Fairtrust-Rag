@@ -3,7 +3,7 @@
 import json
 import re
 from pathlib import Path
-from typing import List, Sequence, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
 from .embeddings import Embedder
 from .models import Chunk, SearchResult
@@ -36,12 +36,22 @@ class InMemoryVectorStore:
     def add(self, chunks: Sequence[Chunk]) -> None:
         self._records.extend((chunk, self.embedder.embed(chunk.text)) for chunk in chunks)
 
-    def search(self, query: str, top_k: int = 3) -> List[SearchResult]:
+    def search(
+        self,
+        query: str,
+        top_k: int = 3,
+        allowed_sources: Optional[Sequence[str]] = None,
+    ) -> List[SearchResult]:
         query_vector = self.embedder.embed(query)
+        allowed_names = (
+            {Path(source).name for source in allowed_sources}
+            if allowed_sources else None
+        )
         ranked = sorted(
             (
                 SearchResult(chunk=chunk, score=max(0.0, cosine_similarity(query_vector, vector)))
                 for chunk, vector in self._records
+                if allowed_names is None or Path(chunk.source).name in allowed_names
             ),
             key=lambda result: result.score,
             reverse=True,
@@ -49,11 +59,14 @@ class InMemoryVectorStore:
         return ranked[:top_k]
 
     def search_many(
-        self, queries: Sequence[str], top_k: int = 3
+        self,
+        queries: Sequence[str],
+        top_k: int = 3,
+        allowed_sources: Optional[Sequence[str]] = None,
     ) -> List[SearchResult]:
         best_by_chunk = {}
         for query in queries:
-            for result in self.search(query, top_k):
+            for result in self.search(query, top_k, allowed_sources):
                 previous = best_by_chunk.get(result.chunk.chunk_id)
                 if previous is None or result.score > previous.score:
                     best_by_chunk[result.chunk.chunk_id] = result

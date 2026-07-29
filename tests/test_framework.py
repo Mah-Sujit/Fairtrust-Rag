@@ -118,6 +118,35 @@ class ConflictDetectionTests(unittest.TestCase):
         _, conflicts = detector.detect(evidence)
         self.assertEqual(conflicts, [])
 
+    def test_different_entities_are_not_compared_as_a_conflict(self):
+        evidence = [
+            SearchResult(
+                Chunk(
+                    "c1",
+                    "d1",
+                    "Sergei Aleksandrovich Tokarev was a professor at Moscow State University.",
+                    "tokarev.txt",
+                ),
+                0.9,
+            ),
+            SearchResult(
+                Chunk(
+                    "c2",
+                    "d2",
+                    "Sergei Aleksandrovich Kosarev is a Russian football midfielder.",
+                    "kosarev.txt",
+                ),
+                0.8,
+            ),
+        ]
+        detector = NLIConflictDetector(
+            minimum_lexical_overlap=0.40,
+            cross_encoder=FakeCrossEncoder([[3.0, 0.1, 0.2]]),
+        )
+        score, conflicts = detector.detect(evidence)
+        self.assertEqual(score, 0.0)
+        self.assertEqual(conflicts, [])
+
 
 class DecisionControllerTests(unittest.TestCase):
     def test_conflict_is_shown_instead_of_answered(self):
@@ -224,6 +253,23 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(restored.load_index(index_path), count)
         report = restored.ask("What is the capital of France?")
         self.assertEqual(report.decision, "answer")
+
+    def test_retrieval_can_be_scoped_to_candidate_documents(self):
+        Path(self.temp_dir.name, "other.txt").write_text(
+            "Berlin is the capital of Germany.",
+            encoding="utf-8",
+        )
+        pipeline = FairTrustRAG()
+        pipeline.ingest(self.temp_dir.name)
+        report = pipeline.ask(
+            "What is the capital of Germany?",
+            allowed_sources=["other.txt"],
+        )
+        self.assertTrue(report.retrieved)
+        self.assertEqual(
+            Path(report.retrieved[0].chunk.source).name,
+            "other.txt",
+        )
 
 
 class FakeHTTPResponse:
@@ -369,6 +415,10 @@ class DatasetConverterTests(unittest.TestCase):
             self.assertEqual(
                 converted["supporting_documents"],
                 ["hotpotqa/abc123_00.txt"],
+            )
+            self.assertEqual(
+                converted["candidate_documents"],
+                ["hotpotqa/abc123_00.txt", "hotpotqa/abc123_01.txt"],
             )
 
 

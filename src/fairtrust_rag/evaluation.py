@@ -19,6 +19,7 @@ class EvaluationCase:
     source_dataset: Optional[str] = None
     evidence_condition: Optional[str] = None
     supporting_documents: List[str] = field(default_factory=list)
+    candidate_documents: List[str] = field(default_factory=list)
 
 
 def load_cases(path: Union[str, Path]) -> List[EvaluationCase]:
@@ -146,7 +147,13 @@ def run_evaluation(
 ) -> Dict[str, object]:
     results = []
     for case in cases:
-        report = pipeline.ask(case.question)
+        if case.candidate_documents:
+            report = pipeline.ask(
+                case.question,
+                allowed_sources=case.candidate_documents,
+            )
+        else:
+            report = pipeline.ask(case.question)
         answer_correct = _answer_matches(report.answer, case.gold_answer)
         decision_correct = (
             report.decision == case.expected_decision
@@ -167,6 +174,7 @@ def run_evaluation(
                 "source_dataset": case.source_dataset,
                 "evidence_condition": case.evidence_condition,
                 "supporting_documents": case.supporting_documents,
+                "candidate_documents": case.candidate_documents,
             }
         )
     return {

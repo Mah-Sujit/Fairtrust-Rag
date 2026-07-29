@@ -1,7 +1,7 @@
 """End-to-end FairTrust-RAG orchestration."""
 
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
 from .config import Settings
 from .conflicts import NLIConflictDetector, NoOpConflictDetector
@@ -52,10 +52,11 @@ class FairTrustRAG:
         if self.settings.conflict_detection_enabled:
             shared_model = getattr(self.verifier, "model", None)
             self.conflict_detector = NLIConflictDetector(
-                self.settings.verification_model,
-                self.settings.minimum_conflict_confidence,
-                self.settings.minimum_conflict_overlap,
-                self.settings.maximum_conflict_pairs,
+                model_name=self.settings.verification_model,
+                minimum_confidence=self.settings.minimum_conflict_confidence,
+                minimum_lexical_overlap=self.settings.minimum_conflict_overlap,
+                max_pairs=self.settings.maximum_conflict_pairs,
+                minimum_evidence_score=self.settings.minimum_retrieval_score,
                 cross_encoder=shared_model,
             )
         else:
@@ -103,10 +104,16 @@ class FairTrustRAG:
         coverage = supported / len(claims)
         return results, precision, coverage
 
-    def ask(self, question: str) -> TrustReport:
+    def ask(
+        self,
+        question: str,
+        allowed_sources: Optional[Sequence[str]] = None,
+    ) -> TrustReport:
         if not question.strip():
             raise ValueError("question cannot be empty")
-        retrieved = self.store.search(question, self.settings.top_k)
+        retrieved = self.store.search(
+            question, self.settings.top_k, allowed_sources
+        )
         retrieval_attempts = 1
         evidence_sufficient = bool(
             retrieved
@@ -116,6 +123,7 @@ class FairTrustRAG:
             retrieved = self.store.search_many(
                 [question, expand_query(question)],
                 self.settings.retry_top_k,
+                allowed_sources,
             )
             retrieval_attempts = 2
             evidence_sufficient = bool(

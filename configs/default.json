@@ -9,7 +9,7 @@
   "minimum_nli_confidence": 0.50,
   "conflict_detection_enabled": true,
   "minimum_conflict_confidence": 0.80,
-  "minimum_conflict_overlap": 0.20,
+  "minimum_conflict_overlap": 0.40,
   "maximum_conflict_pairs": 100,
   "retrieval_retry_enabled": true,
   "retry_top_k": 8,
