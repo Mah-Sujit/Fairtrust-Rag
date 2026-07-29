@@ -18,10 +18,13 @@ def calculate_risk(
         sum(claim.status != "supported" for claim in claims) / len(claims)
         if claims else 1.0
     )
-    supported_ids = {
-        claim.evidence_chunk_id for claim in claims if claim.evidence_chunk_id
-    }
-    citation_risk = 0.0 if supported_ids.intersection(answer.citations) else 1.0
+    supported = [claim for claim in claims if claim.status == "supported"]
+    cited_supported = sum(
+        claim.evidence_chunk_id in answer.citations for claim in supported
+    )
+    citation_risk = (
+        1.0 - cited_supported / len(supported) if supported else 1.0
+    )
     risk = (
         weights["retrieval"] * retrieval_risk
         + weights["unsupported_claims"] * unsupported_risk

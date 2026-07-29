@@ -85,8 +85,10 @@ ollama pull llama3.2:3b
 ollama serve
 ```
 
-Set `generation_provider` to `ollama` in `configs/default.json`. The default
-remains `extractive`, so Ollama is not required for tests or basic operation.
+Use `configs/hotpotqa-ollama.json` for the multi-hop benchmark. It retrieves
+eight candidate passages and uses a prompt that requires cross-document
+reasoning, concise answers, and claim-level citations. The default remains
+`extractive`, so Ollama is not required for tests or basic operation.
 
 ## Run benchmark and fairness evaluation
 
@@ -132,6 +134,20 @@ filenames. Evaluation restricts retrieval to each question's candidate set,
 matching the HotpotQA distractor protocol. Do not tune on the same
 sample later used for final testing. Original and generated benchmark data are
 ignored by Git; regenerate them from the documented source and seed.
+
+Run the multi-hop generation experiment after Ollama is running:
+
+```bash
+fairtrust-evaluate \
+  --documents data/benchmarks/hotpotqa-v2/documents \
+  --dataset data/benchmarks/hotpotqa-v2/cases.jsonl \
+  --config configs/hotpotqa-ollama.json \
+  --index-path data/indexes/hotpotqa-50-v3.json \
+  --output results/hotpotqa-50-ollama.json
+```
+
+The result now reports supporting-document recall and joint supporting-document
+recall. These separate retrieval failures from answer-generation failures.
 
 You can also run it without installation:
 

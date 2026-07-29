@@ -1,0 +1,30 @@
+{
+  "chunk_size": 500,
+  "chunk_overlap": 80,
+  "embedding_provider": "sentence_transformers",
+  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "embedding_dimensions": 384,
+  "verification_provider": "nli",
+  "verification_model": "cross-encoder/nli-deberta-v3-small",
+  "minimum_nli_confidence": 0.50,
+  "conflict_detection_enabled": false,
+  "minimum_conflict_confidence": 0.80,
+  "minimum_conflict_overlap": 0.40,
+  "maximum_conflict_pairs": 100,
+  "retrieval_retry_enabled": true,
+  "retry_top_k": 8,
+  "citation_verification_enabled": true,
+  "generation_provider": "ollama",
+  "ollama_model": "llama3.2:3b",
+  "ollama_url": "http://localhost:11434",
+  "ollama_timeout_seconds": 120,
+  "top_k": 8,
+  "minimum_retrieval_score": 0.10,
+  "minimum_claim_support": 0.18,
+  "maximum_answer_risk": 0.55,
+  "risk_weights": {
+    "retrieval": 0.35,
+    "unsupported_claims": 0.55,
+    "citation": 0.10
+  }
+}

@@ -315,6 +315,7 @@ class StubEvaluationPipeline:
                 risk_score=1.0,
                 conflict_score=0.0,
                 retrieval_attempts=2,
+                retrieved=[],
             )
         return SimpleNamespace(
             decision="answer",
@@ -322,6 +323,7 @@ class StubEvaluationPipeline:
             risk_score=0.1,
             conflict_score=0.0,
             retrieval_attempts=1,
+            retrieved=[],
         )
 
 

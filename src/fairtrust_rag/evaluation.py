@@ -44,6 +44,10 @@ def _answer_matches(answer: Optional[str], gold_answer: Optional[str]) -> Option
     return gold_answer.lower().strip() in (answer or "").lower()
 
 
+def _source_names(paths: Iterable[str]) -> set:
+    return {Path(path).name for path in paths}
+
+
 def _rate(values: Iterable[bool]) -> Optional[float]:
     items = list(values)
     return sum(items) / len(items) if items else None
@@ -77,6 +81,16 @@ def summarize_results(results: List[Dict[str, object]]) -> Dict[str, object]:
         for item in results
         if item["answer_correct"] is not None
     ]
+    retrieval_recalls = [
+        float(item["supporting_document_recall"])
+        for item in results
+        if item.get("supporting_document_recall") is not None
+    ]
+    joint_retrieval = [
+        bool(item["all_supporting_documents_retrieved"])
+        for item in results
+        if item.get("all_supporting_documents_retrieved") is not None
+    ]
     return {
         "cases": len(results),
         "coverage": _rate(answered),
@@ -97,6 +111,11 @@ def summarize_results(results: List[Dict[str, object]]) -> Dict[str, object]:
             sum(calibration_items) / len(calibration_items)
             if calibration_items else None
         ),
+        "supporting_document_recall": (
+            sum(retrieval_recalls) / len(retrieval_recalls)
+            if retrieval_recalls else None
+        ),
+        "joint_supporting_document_recall": _rate(joint_retrieval),
     }
 
 
@@ -155,6 +174,17 @@ def run_evaluation(
         else:
             report = pipeline.ask(case.question)
         answer_correct = _answer_matches(report.answer, case.gold_answer)
+        gold_sources = _source_names(case.supporting_documents)
+        retrieved_sources = _source_names(
+            item.chunk.source for item in report.retrieved
+        )
+        supporting_document_recall = (
+            len(gold_sources & retrieved_sources) / len(gold_sources)
+            if gold_sources else None
+        )
+        all_supporting_documents_retrieved = (
+            gold_sources <= retrieved_sources if gold_sources else None
+        )
         decision_correct = (
             report.decision == case.expected_decision
             if case.expected_decision is not None else None
@@ -175,6 +205,11 @@ def run_evaluation(
                 "evidence_condition": case.evidence_condition,
                 "supporting_documents": case.supporting_documents,
                 "candidate_documents": case.candidate_documents,
+                "retrieved_documents": sorted(retrieved_sources),
+                "supporting_document_recall": supporting_document_recall,
+                "all_supporting_documents_retrieved": (
+                    all_supporting_documents_retrieved
+                ),
             }
         )
     return {

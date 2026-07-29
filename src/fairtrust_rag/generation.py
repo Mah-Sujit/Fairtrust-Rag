@@ -60,9 +60,13 @@ class OllamaAnswerGenerator(AnswerGenerator):
             f"[{item.chunk.chunk_id}] {item.chunk.text}" for item in evidence
         )
         prompt = (
-            "Answer only from the evidence. Cite every factual claim using the "
-            "chunk identifier in square brackets. If evidence is insufficient, "
-            "say so.\n\n"
+            "You are an evidence-grounded question-answering system. Some "
+            "questions require connecting facts from two or more passages. "
+            "Work out that connection, then return only a concise direct answer. "
+            "Use only the supplied evidence and cite every factual claim with "
+            "its chunk identifier in square brackets. Never cite a chunk that "
+            "does not support the claim. If the passages do not establish the "
+            "answer, return exactly: INSUFFICIENT EVIDENCE.\n\n"
             f"Question: {question}\n\nEvidence:\n{context}"
         )
         request = urllib.request.Request(
