@@ -7,9 +7,8 @@ either answers or abstains with an explanation.
 
 The core baseline is dependency-free. The default example configuration uses
 Sentence Transformers for semantic retrieval, while automated tests retain the
-fast deterministic hashing baseline. The extractive answer generator and
-lexical evidence verifier remain transparent baselines—not research-grade
-models.
+fast deterministic hashing baseline. Generation can use either the extractive
+baseline or a local Ollama model.
 
 ## Current pipeline
 
@@ -20,17 +19,21 @@ Cleaning and overlapping chunks
         ↓
 Semantic or hashing embeddings + in-memory cosine retrieval
         ↓
+Automatic expanded retrieval retry when evidence is weak
+        ↓
 Passage-to-passage conflict detection
         ↓
-Extractive answer generator
+Extractive or local Ollama answer generator
         ↓
 Atomic claim extraction
         ↓
 Three-way NLI or lexical evidence verification
         ↓
+Claim-to-citation verification
+        ↓
 Weighted risk score
         ↓
-Answer or abstain + structured trust report
+Answer / show conflict / abstain + structured trust report
 ```
 
 ## Setup on macOS
@@ -57,7 +60,56 @@ fairtrust-rag \
 ```
 
 The command returns JSON containing the decision, answer, risk score,
-retrieved evidence, citations, and claim-verification results.
+retrieved evidence, retrieval attempts, citation metrics, conflicts, and
+claim-verification results.
+
+Reuse a persistent index between runs:
+
+```bash
+fairtrust-rag \
+  --documents data/documents \
+  --index-path data/indexes/documents.json \
+  --question "What is Natural Language Processing?" \
+  --config configs/default.json
+```
+
+The first run creates the index. Later runs load it without re-embedding the
+documents. Rebuild it after changing the source documents or embedding model.
+
+## Optional local Ollama generation
+
+Install Ollama separately, download a model, and start its local service:
+
+```bash
+ollama pull llama3.2:3b
+ollama serve
+```
+
+Set `generation_provider` to `ollama` in `configs/default.json`. The default
+remains `extractive`, so Ollama is not required for tests or basic operation.
+
+## Run benchmark and fairness evaluation
+
+Evaluation data uses one JSON object per line:
+
+```json
+{"case_id":"q1","question":"What is NLP?","expected_decision":"answer","gold_answer":"artificial intelligence","group":"group_a"}
+```
+
+Run the included example:
+
+```bash
+fairtrust-evaluate \
+  --documents data/documents \
+  --dataset data/evaluation/example.jsonl \
+  --config configs/default.json \
+  --index-path data/indexes/documents.json \
+  --output results/example.json
+```
+
+The report includes answer accuracy, decision accuracy, coverage,
+hallucination rate, abstention rate, conflict rate, average risk, calibration
+error, group-level metrics, fairness gaps, and worst-group performance.
 
 You can also run it without installation:
 
@@ -89,6 +141,10 @@ decision thresholds. Set `embedding_provider` to `sentence_transformers` for
 semantic retrieval or `hashing` for the dependency-free baseline. The risk
 weights must add up to `1.0`.
 
+Retrieval thresholds are embedding-model specific. The included `0.10`
+semantic threshold is only a starter value derived from the example corpus;
+calibrate it on a separate validation split before reporting results.
+
 Set `verification_provider` to `nli` to classify every generated claim as
 `supported`, `contradicted`, or `insufficient_evidence`. The default NLI model
 is `cross-encoder/nli-deberta-v3-small`. Use `lexical` for the fast,
@@ -103,6 +159,16 @@ The controller treats a detected contradiction as a separate outcome:
 `decision` becomes `show_conflict`, the definitive answer and citations are
 withheld, and the report exposes both conflicting sentences. Conflict
 confidence also becomes the minimum reported risk for that response.
+
+When `retrieval_retry_enabled` is true, insufficient first-pass evidence
+triggers a second search using both the original question and a simplified
+content query, merged up to `retry_top_k`. The final report records one or two
+retrieval attempts. If the expanded search is still inadequate, the controller
+abstains.
+
+Citation verification restricts evidence verification to the chunks actually
+cited by the generator. Reports include citation precision, citation coverage,
+and a result for each factual claim.
 
 The baseline risk is:
 
@@ -125,26 +191,29 @@ regardless of the softer weighted signals.
 
 - `ingestion.py`: loads `.txt` and `.md` files and creates overlapping chunks
 - `embeddings.py`: embedding interface and deterministic hashing baseline
-- `retrieval.py`: in-memory cosine vector search
-- `generation.py`: generator interface and extractive baseline
-- `verification.py`: claim extraction and transparent verification stub
+- `retrieval.py`: cosine vector search and persistent JSON indexes
+- `generation.py`: extractive and local Ollama generators
+- `verification.py`: lexical and NLI claim verification
+- `conflicts.py`: NLI passage-to-passage contradiction detection
 - `trust.py`: risk calculation and answer/abstain policy
 - `pipeline.py`: end-to-end orchestration
+- `evaluation.py`: reliability, selective-answering, and group metrics
+- `fairness.py`: matched demographic counterfactual case generation
 - `models.py`: typed inputs, outputs, and trust report
-- `cli.py`: runnable command-line entry point
+- `cli.py` and `evaluation_cli.py`: application and experiment commands
 
 ## Research roadmap
 
-Replace one baseline component at a time and evaluate each change:
+The implementation framework is now complete. The remaining work is empirical
+research rather than missing scaffolding:
 
-1. Evaluate semantic retrieval against the hashing baseline and add a
-   persistent FAISS index.
-2. Add an open-source LLM adapter (for example, Ollama or Transformers).
-3. Calibrate the three-way NLI verifier on domain-specific labelled claims.
-4. Add passage-to-passage evidence-conflict and citation-entailment checks.
-5. Learn and calibrate risk on labelled validation data.
-6. Add retrieve-again and show-conflict controller actions.
-7. Add group-level reliability, coverage, and abstention evaluation.
+1. Build and manually validate a larger labelled benchmark.
+2. Calibrate retrieval, NLI, conflict, and risk thresholds on validation data.
+3. Compare hashing, semantic, extractive, and Ollama baselines.
+4. Run ablations for retry, NLI, citation, conflict, and safety-gate modules.
+5. Construct justified demographic counterfactual groups and inspect them for
+   validity before interpreting fairness gaps.
+6. Analyse latency, memory, token use, errors, and limitations.
 
 Keep the simple implementations as experimental baselines. A strong study
 should compare every new component against them and include ablations.

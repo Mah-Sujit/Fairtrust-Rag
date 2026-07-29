@@ -16,7 +16,7 @@ semantic = ["sentence-transformers>=5.6,<6"]
 
 [project.scripts]
 fairtrust-rag = "fairtrust_rag.cli:main"
+fairtrust-evaluate = "fairtrust_rag.evaluation_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-

@@ -51,6 +51,14 @@ class EvidenceConflict:
 
 
 @dataclass(frozen=True)
+class CitationVerification:
+    claim: str
+    citation_id: Optional[str]
+    status: str
+    support_score: float
+
+
+@dataclass(frozen=True)
 class TrustReport:
     question: str
     decision: str
@@ -62,6 +70,10 @@ class TrustReport:
     claims: List[ClaimVerification]
     conflict_score: float
     conflicts: List[EvidenceConflict]
+    retrieval_attempts: int = 1
+    citation_verifications: List[CitationVerification] = field(default_factory=list)
+    citation_precision: float = 0.0
+    citation_coverage: float = 0.0
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -71,6 +83,18 @@ class TrustReport:
             "risk_score": round(self.risk_score, 4),
             "reason": self.reason,
             "citations": self.citations,
+            "retrieval_attempts": self.retrieval_attempts,
+            "citation_precision": round(self.citation_precision, 4),
+            "citation_coverage": round(self.citation_coverage, 4),
+            "citation_verifications": [
+                {
+                    "claim": item.claim,
+                    "citation_id": item.citation_id,
+                    "status": item.status,
+                    "support_score": round(item.support_score, 4),
+                }
+                for item in self.citation_verifications
+            ],
             "conflict_score": round(self.conflict_score, 4),
             "conflicts": [
                 {

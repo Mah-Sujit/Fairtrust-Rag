@@ -1,8 +1,11 @@
 """Answer-generation interfaces and a local extractive baseline."""
 
 import re
+import json
+import urllib.error
+import urllib.request
 from abc import ABC, abstractmethod
-from typing import Sequence
+from typing import Any, Callable, Optional, Sequence
 
 from .models import GeneratedAnswer, SearchResult
 
@@ -33,3 +36,56 @@ class ExtractiveAnswerGenerator(AnswerGenerator):
         sentences.sort(key=lambda item: item[0], reverse=True)
         answer = " ".join(sentence for _, sentence in sentences[:2])
         return GeneratedAnswer(text=answer, citations=[evidence[0].chunk.chunk_id])
+
+
+class OllamaAnswerGenerator(AnswerGenerator):
+    """Local Ollama adapter using its HTTP generation endpoint."""
+
+    def __init__(
+        self,
+        model: str = "llama3.2:3b",
+        base_url: str = "http://localhost:11434",
+        timeout_seconds: int = 120,
+        opener: Optional[Callable[..., Any]] = None,
+    ) -> None:
+        self.model = model
+        self.url = f"{base_url.rstrip('/')}/api/generate"
+        self.timeout_seconds = timeout_seconds
+        self.opener = opener or urllib.request.urlopen
+
+    def generate(
+        self, question: str, evidence: Sequence[SearchResult]
+    ) -> GeneratedAnswer:
+        context = "\n\n".join(
+            f"[{item.chunk.chunk_id}] {item.chunk.text}" for item in evidence
+        )
+        prompt = (
+            "Answer only from the evidence. Cite every factual claim using the "
+            "chunk identifier in square brackets. If evidence is insufficient, "
+            "say so.\n\n"
+            f"Question: {question}\n\nEvidence:\n{context}"
+        )
+        request = urllib.request.Request(
+            self.url,
+            data=json.dumps(
+                {"model": self.model, "prompt": prompt, "stream": False}
+            ).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with self.opener(request, timeout=self.timeout_seconds) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except (urllib.error.URLError, TimeoutError) as exc:
+            raise RuntimeError(
+                "Ollama is unavailable. Start Ollama and ensure the configured "
+                f"model '{self.model}' is installed."
+            ) from exc
+        text = str(payload.get("response", "")).strip()
+        known_ids = {item.chunk.chunk_id for item in evidence}
+        citations = [
+            citation
+            for citation in re.findall(r"\[([^\]]+)\]", text)
+            if citation in known_ids
+        ]
+        return GeneratedAnswer(text=text, citations=list(dict.fromkeys(citations)))

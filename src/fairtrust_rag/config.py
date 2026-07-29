@@ -18,7 +18,15 @@ class Settings:
     minimum_nli_confidence: float = 0.50
     conflict_detection_enabled: bool = False
     minimum_conflict_confidence: float = 0.80
+    minimum_conflict_overlap: float = 0.20
     maximum_conflict_pairs: int = 100
+    retrieval_retry_enabled: bool = False
+    retry_top_k: int = 8
+    citation_verification_enabled: bool = True
+    generation_provider: str = "extractive"
+    ollama_model: str = "llama3.2:3b"
+    ollama_url: str = "http://localhost:11434"
+    ollama_timeout_seconds: int = 120
     top_k: int = 3
     minimum_retrieval_score: float = 0.08
     minimum_claim_support: float = 0.18
@@ -48,8 +56,16 @@ class Settings:
             raise ValueError("minimum_nli_confidence must be between 0 and 1")
         if not 0 <= self.minimum_conflict_confidence <= 1:
             raise ValueError("minimum_conflict_confidence must be between 0 and 1")
+        if not 0 <= self.minimum_conflict_overlap <= 1:
+            raise ValueError("minimum_conflict_overlap must be between 0 and 1")
         if self.maximum_conflict_pairs <= 0:
             raise ValueError("maximum_conflict_pairs must be positive")
+        if self.retry_top_k < self.top_k:
+            raise ValueError("retry_top_k must be at least top_k")
+        if self.generation_provider not in {"extractive", "ollama"}:
+            raise ValueError("generation_provider must be 'extractive' or 'ollama'")
+        if self.ollama_timeout_seconds <= 0:
+            raise ValueError("ollama_timeout_seconds must be positive")
         if not 0 <= self.maximum_answer_risk <= 1:
             raise ValueError("maximum_answer_risk must be between 0 and 1")
         if abs(sum(self.risk_weights.values()) - 1.0) > 1e-6:

@@ -1,12 +1,23 @@
 import tempfile
 import unittest
+import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from fairtrust_rag import FairTrustRAG, Settings
 from fairtrust_rag.conflicts import NLIConflictDetector
+from fairtrust_rag.evaluation import (
+    EvaluationCase,
+    fairness_summary,
+    run_evaluation,
+    summarize_results,
+)
+from fairtrust_rag.generation import OllamaAnswerGenerator
+from fairtrust_rag.fairness import generate_counterfactual_cases
 from fairtrust_rag.ingestion import chunk_documents
 from fairtrust_rag.models import Document
 from fairtrust_rag.models import Chunk, EvidenceConflict, SearchResult
+from fairtrust_rag.retrieval import expand_query
 from fairtrust_rag.trust import apply_safety_gates, decide
 from fairtrust_rag.verification import NLIEvidenceVerifier
 
@@ -17,6 +28,12 @@ class IngestionTests(unittest.TestCase):
         chunks = chunk_documents([document], chunk_size=12, overlap=2)
         self.assertGreater(len(chunks), 1)
         self.assertEqual(chunks[0].metadata["kind"], "test")
+
+    def test_retry_query_keeps_content_terms(self):
+        self.assertEqual(
+            expand_query("What is the distance between Earth and Mars?"),
+            "distance between earth and mars",
+        )
 
 
 class ConfigurationTests(unittest.TestCase):
@@ -181,6 +198,138 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(report.citations, [])
         self.assertEqual(report.risk_score, 0.93)
         self.assertEqual(len(report.conflicts), 1)
+
+    def test_retry_and_citation_metrics_are_reported(self):
+        settings = Settings(
+            retrieval_retry_enabled=True,
+            retry_top_k=5,
+            maximum_answer_risk=0.40,
+        )
+        pipeline = FairTrustRAG(settings)
+        pipeline.ingest(self.temp_dir.name)
+        unrelated = pipeline.ask("How do volcanoes form?")
+        supported = pipeline.ask("What is the capital of France?")
+        self.assertEqual(unrelated.retrieval_attempts, 2)
+        self.assertEqual(supported.retrieval_attempts, 1)
+        self.assertEqual(supported.citation_precision, 1.0)
+        self.assertEqual(supported.citation_coverage, 1.0)
+
+    def test_vector_index_round_trip(self):
+        pipeline = FairTrustRAG()
+        count = pipeline.ingest(self.temp_dir.name)
+        index_path = Path(self.temp_dir.name, "index.json")
+        pipeline.save_index(index_path)
+        restored = FairTrustRAG()
+        self.assertEqual(restored.load_index(index_path), count)
+        report = restored.ask("What is the capital of France?")
+        self.assertEqual(report.decision, "answer")
+
+
+class FakeHTTPResponse:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        return False
+
+    def read(self):
+        return json.dumps(
+            {"response": "Paris is in France [c1]."}
+        ).encode("utf-8")
+
+
+class OllamaGeneratorTests(unittest.TestCase):
+    def test_response_and_known_citations_are_parsed(self):
+        def opener(request, timeout):
+            self.assertEqual(timeout, 10)
+            return FakeHTTPResponse()
+
+        generator = OllamaAnswerGenerator(
+            timeout_seconds=10,
+            opener=opener,
+        )
+        evidence = [
+            SearchResult(
+                Chunk("c1", "d1", "Paris is in France.", "facts.txt"),
+                0.9,
+            )
+        ]
+        answer = generator.generate("Where is Paris?", evidence)
+        self.assertIn("Paris", answer.text)
+        self.assertEqual(answer.citations, ["c1"])
+
+
+class StubEvaluationPipeline:
+    def ask(self, question):
+        if "unknown" in question:
+            return SimpleNamespace(
+                decision="abstain",
+                answer=None,
+                risk_score=1.0,
+                conflict_score=0.0,
+                retrieval_attempts=2,
+            )
+        return SimpleNamespace(
+            decision="answer",
+            answer="Paris is the capital of France.",
+            risk_score=0.1,
+            conflict_score=0.0,
+            retrieval_attempts=1,
+        )
+
+
+class EvaluationTests(unittest.TestCase):
+    def test_evaluation_and_group_gaps(self):
+        evaluation = run_evaluation(
+            StubEvaluationPipeline(),
+            [
+                EvaluationCase(
+                    "a1",
+                    "What is France's capital?",
+                    "answer",
+                    "Paris",
+                    "group_a",
+                ),
+                EvaluationCase(
+                    "b1",
+                    "unknown question",
+                    "abstain",
+                    None,
+                    "group_b",
+                ),
+            ],
+        )
+        self.assertEqual(evaluation["summary"]["decision_accuracy"], 1.0)
+        self.assertEqual(evaluation["fairness"]["coverage_gap"], 1.0)
+
+    def test_hallucination_rate_counts_wrong_accepted_answers(self):
+        results = [
+            {
+                "decision": "answer",
+                "answer_correct": False,
+                "decision_correct": True,
+                "risk_score": 0.2,
+                "group": "a",
+            }
+        ]
+        self.assertEqual(summarize_results(results)["hallucination_rate"], 1.0)
+        self.assertIn("groups", fairness_summary(results))
+
+    def test_counterfactual_cases_change_only_group_term(self):
+        cases = generate_counterfactual_cases(
+            "engineer",
+            "A {group} engineer applied for the role.",
+            ["female", "male"],
+            expected_decision="answer",
+        )
+        self.assertEqual(len(cases), 2)
+        self.assertEqual(cases[0].group, "female")
+        self.assertIn("female", cases[0].question)
+        self.assertIn("male", cases[1].question)
+
+    def test_counterfactual_template_requires_placeholder(self):
+        with self.assertRaises(ValueError):
+            generate_counterfactual_cases("bad", "No placeholder", ["a", "b"])
 
 
 if __name__ == "__main__":

@@ -6,6 +6,12 @@ from typing import Any, List, Optional, Sequence, Tuple
 
 from .models import EvidenceConflict, SearchResult
 
+WORDS = re.compile(r"[a-z0-9]+")
+STOP_WORDS = {
+    "a", "an", "and", "are", "as", "at", "be", "by", "for", "from",
+    "has", "in", "is", "it", "of", "on", "or", "that", "the", "to", "was",
+}
+
 
 class NoOpConflictDetector:
     def detect(
@@ -21,6 +27,7 @@ class NLIConflictDetector:
         self,
         model_name: str = "cross-encoder/nli-deberta-v3-small",
         minimum_confidence: float = 0.80,
+        minimum_lexical_overlap: float = 0.20,
         max_pairs: int = 100,
         cross_encoder: Optional[Any] = None,
     ) -> None:
@@ -28,6 +35,8 @@ class NLIConflictDetector:
             raise ValueError("minimum_confidence must be between 0 and 1")
         if max_pairs <= 0:
             raise ValueError("max_pairs must be positive")
+        if not 0 <= minimum_lexical_overlap <= 1:
+            raise ValueError("minimum_lexical_overlap must be between 0 and 1")
         if cross_encoder is None:
             try:
                 from sentence_transformers import CrossEncoder
@@ -38,6 +47,7 @@ class NLIConflictDetector:
             cross_encoder = CrossEncoder(model_name)
         self.model = cross_encoder
         self.minimum_confidence = minimum_confidence
+        self.minimum_lexical_overlap = minimum_lexical_overlap
         self.max_pairs = max_pairs
 
     @staticmethod
@@ -55,6 +65,18 @@ class NLIConflictDetector:
             if sentence.strip()
         ]
 
+    def _has_subject_overlap(self, left: str, right: str) -> bool:
+        left_terms = {
+            word for word in WORDS.findall(left.lower()) if word not in STOP_WORDS
+        }
+        right_terms = {
+            word for word in WORDS.findall(right.lower()) if word not in STOP_WORDS
+        }
+        overlap = len(left_terms & right_terms) / max(
+            1, min(len(left_terms), len(right_terms))
+        )
+        return overlap >= self.minimum_lexical_overlap
+
     def detect(
         self, evidence: Sequence[SearchResult]
     ) -> Tuple[float, List[EvidenceConflict]]:
@@ -65,6 +87,10 @@ class NLIConflictDetector:
                     continue
                 for left_sentence in self._sentences(left.chunk.text):
                     for right_sentence in self._sentences(right.chunk.text):
+                        if not self._has_subject_overlap(
+                            left_sentence, right_sentence
+                        ):
+                            continue
                         candidates.append(
                             (
                                 left_sentence,
