@@ -100,6 +100,10 @@ The controller answers only when risk is at or below
 `maximum_answer_risk`. These values are initial engineering defaults and must
 be calibrated on validation data before making research claims.
 
+Evidence relevance is a mandatory safety gate. If no retrieved passage meets
+`minimum_retrieval_score`, the framework abstains and reports risk `1.0`
+regardless of the softer weighted signals.
+
 ## Module map
 
 - `ingestion.py`: loads `.txt` and `.md` files and creates overlapping chunks

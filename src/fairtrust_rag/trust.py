@@ -30,6 +30,16 @@ def calculate_risk(
     return max(0.0, min(1.0, risk))
 
 
+def apply_safety_gates(risk: float, evidence_sufficient: bool) -> float:
+    """Convert a failed mandatory safety gate into maximum reported risk.
+
+    The weighted score measures soft signals. Evidence relevance is a hard
+    prerequisite: an answer cannot be reliable when no retrieved passage meets
+    the configured minimum.
+    """
+    return risk if evidence_sufficient else 1.0
+
+
 def decide(
     risk: float, maximum_answer_risk: float, evidence_sufficient: bool = True
 ) -> Tuple[str, str]:

@@ -47,6 +47,7 @@ class PipelineTests(unittest.TestCase):
         report = pipeline.ask("How do volcanoes form?")
         self.assertEqual(report.decision, "abstain")
         self.assertIsNone(report.answer)
+        self.assertEqual(report.risk_score, 1.0)
 
 
 if __name__ == "__main__":

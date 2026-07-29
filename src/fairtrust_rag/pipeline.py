@@ -9,7 +9,7 @@ from .generation import AnswerGenerator, ExtractiveAnswerGenerator
 from .ingestion import chunk_documents, load_documents
 from .models import TrustReport
 from .retrieval import InMemoryVectorStore
-from .trust import calculate_risk, decide
+from .trust import apply_safety_gates, calculate_risk, decide
 from .verification import LexicalEvidenceVerifier, extract_claims
 
 
@@ -53,6 +53,7 @@ class FairTrustRAG:
             retrieved
             and retrieved[0].score >= self.settings.minimum_retrieval_score
         )
+        risk = apply_safety_gates(risk, evidence_sufficient)
         decision, reason = decide(
             risk, self.settings.maximum_answer_risk, evidence_sufficient
         )
