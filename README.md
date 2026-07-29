@@ -5,10 +5,11 @@ retrieval-augmented generation. It ingests local documents, retrieves relevant
 evidence, produces an answer, verifies atomic claims, calculates risk, and
 either answers or abstains with an explanation.
 
-This first version is intentionally dependency-free and runs locally on macOS
-with Python 3.9 or newer. Its hashing embedder, extractive answer generator, and
-lexical evidence verifier are transparent baselines—not research-grade models.
-Their interfaces are designed to be replaced later.
+The core baseline is dependency-free. The default example configuration uses
+Sentence Transformers for semantic retrieval, while automated tests retain the
+fast deterministic hashing baseline. The extractive answer generator and
+lexical evidence verifier remain transparent baselines—not research-grade
+models.
 
 ## Current pipeline
 
@@ -17,7 +18,7 @@ Text/Markdown documents
         ↓
 Cleaning and overlapping chunks
         ↓
-Hashing embeddings + in-memory cosine retrieval
+Semantic or hashing embeddings + in-memory cosine retrieval
         ↓
 Extractive answer generator
         ↓
@@ -35,13 +36,14 @@ Answer or abstain + structured trust report
 From this project directory:
 
 ```bash
-python3 -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -e .
+python -m pip install -e ".[semantic]"
 ```
 
-No API key, model download, or external database is required.
+No API key or external database is required. The semantic model is downloaded
+once on first use and then loaded from the local model cache.
 
 ## Run the example
 
@@ -81,7 +83,9 @@ pytest
 ## Configuration
 
 Edit `configs/default.json` to change chunking, retrieval, verification, and
-decision thresholds. The risk weights must add up to `1.0`.
+decision thresholds. Set `embedding_provider` to `sentence_transformers` for
+semantic retrieval or `hashing` for the dependency-free baseline. The risk
+weights must add up to `1.0`.
 
 The baseline risk is:
 
@@ -95,6 +99,10 @@ risk =
 The controller answers only when risk is at or below
 `maximum_answer_risk`. These values are initial engineering defaults and must
 be calibrated on validation data before making research claims.
+
+Evidence relevance is a mandatory safety gate. If no retrieved passage meets
+`minimum_retrieval_score`, the framework abstains and reports risk `1.0`
+regardless of the softer weighted signals.
 
 ## Module map
 
@@ -112,7 +120,8 @@ be calibrated on validation data before making research claims.
 
 Replace one baseline component at a time and evaluate each change:
 
-1. Add a Sentence Transformers embedder and persistent FAISS index.
+1. Evaluate semantic retrieval against the hashing baseline and add a
+   persistent FAISS index.
 2. Add an open-source LLM adapter (for example, Ollama or Transformers).
 3. Replace lexical verification with a three-way NLI model: supported,
    contradicted, or insufficient evidence.
