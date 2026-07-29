@@ -19,9 +19,16 @@ def _terms(text: str) -> Set[str]:
 
 
 def extract_claims(answer: str) -> List[str]:
+    answer_without_citations = re.sub(r"\[[^\]]+\]", "", answer)
+    answer_without_citations = re.sub(
+        r"\s+([.,!?;:])", r"\1", answer_without_citations
+    )
     return [
         item.strip()
-        for item in re.split(r"(?<=[.!?])\s+|;\s+", answer.strip())
+        for item in re.split(
+            r"(?<=[.!?])\s+|;\s+",
+            answer_without_citations.strip(),
+        )
         if item.strip()
     ]
 

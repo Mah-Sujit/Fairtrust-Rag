@@ -20,7 +20,7 @@ from fairtrust_rag.models import Document
 from fairtrust_rag.models import Chunk, EvidenceConflict, SearchResult
 from fairtrust_rag.retrieval import expand_query
 from fairtrust_rag.trust import apply_safety_gates, decide
-from fairtrust_rag.verification import NLIEvidenceVerifier
+from fairtrust_rag.verification import NLIEvidenceVerifier, extract_claims
 
 
 class IngestionTests(unittest.TestCase):
@@ -80,6 +80,12 @@ class NLIVerificationTests(unittest.TestCase):
         self.assertEqual(
             [result.status for result in results],
             ["supported", "contradicted", "insufficient_evidence"],
+        )
+
+    def test_claim_extraction_removes_citation_identifiers(self):
+        self.assertEqual(
+            extract_claims("Paris is in France [chunk_123]."),
+            ["Paris is in France."],
         )
 
 
@@ -350,6 +356,11 @@ class EvaluationTests(unittest.TestCase):
         )
         self.assertEqual(evaluation["summary"]["decision_accuracy"], 1.0)
         self.assertEqual(evaluation["fairness"]["coverage_gap"], 1.0)
+        self.assertEqual(
+            evaluation["results"][0]["generated_answer"],
+            "Paris is the capital of France.",
+        )
+        self.assertEqual(evaluation["results"][0]["gold_answer"], "Paris")
 
     def test_hallucination_rate_counts_wrong_accepted_answers(self):
         results = [

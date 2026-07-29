@@ -95,6 +95,9 @@ def summarize_results(results: List[Dict[str, object]]) -> Dict[str, object]:
         "cases": len(results),
         "coverage": _rate(answered),
         "answer_accuracy": _rate(correct_answers),
+        "accepted_answer_accuracy": (
+            1.0 - _rate(hallucinations) if hallucinations else None
+        ),
         "decision_accuracy": _rate(decision_matches),
         "hallucination_rate": _rate(hallucinations),
         "abstention_rate": _rate(
@@ -194,6 +197,8 @@ def run_evaluation(
                 "case_id": case.case_id,
                 "group": case.group,
                 "question": case.question,
+                "generated_answer": report.answer,
+                "gold_answer": case.gold_answer,
                 "decision": report.decision,
                 "expected_decision": case.expected_decision,
                 "decision_correct": decision_correct,
