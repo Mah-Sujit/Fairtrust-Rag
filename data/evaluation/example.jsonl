@@ -1,0 +1,3 @@
+{"case_id":"nlp-001","question":"What is Natural Language Processing?","expected_decision":"answer","gold_answer":"branch of artificial intelligence","group":"covered"}
+{"case_id":"nlp-002","question":"When should a trustworthy RAG system abstain?","expected_decision":"answer","gold_answer":"evidence is insufficient","group":"covered"}
+{"case_id":"oos-001","question":"What is the distance between Earth and Mars?","expected_decision":"abstain","group":"out_of_scope"}
