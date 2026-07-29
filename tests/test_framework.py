@@ -6,7 +6,8 @@ from fairtrust_rag import FairTrustRAG, Settings
 from fairtrust_rag.conflicts import NLIConflictDetector
 from fairtrust_rag.ingestion import chunk_documents
 from fairtrust_rag.models import Document
-from fairtrust_rag.models import Chunk, SearchResult
+from fairtrust_rag.models import Chunk, EvidenceConflict, SearchResult
+from fairtrust_rag.trust import apply_safety_gates, decide
 from fairtrust_rag.verification import NLIEvidenceVerifier
 
 
@@ -100,6 +101,48 @@ class ConflictDetectionTests(unittest.TestCase):
         self.assertEqual(conflicts, [])
 
 
+class DecisionControllerTests(unittest.TestCase):
+    def test_conflict_is_shown_instead_of_answered(self):
+        decision, reason = decide(
+            risk=0.95,
+            maximum_answer_risk=0.55,
+            evidence_sufficient=True,
+            conflict_detected=True,
+        )
+        self.assertEqual(decision, "show_conflict")
+        self.assertIn("contradiction", reason)
+
+    def test_conflict_confidence_sets_risk_floor(self):
+        risk = apply_safety_gates(
+            risk=0.10,
+            evidence_sufficient=True,
+            conflict_score=0.92,
+        )
+        self.assertEqual(risk, 0.92)
+
+    def test_missing_evidence_takes_priority_over_conflict(self):
+        decision, _ = decide(
+            risk=1.0,
+            maximum_answer_risk=0.55,
+            evidence_sufficient=False,
+            conflict_detected=True,
+        )
+        self.assertEqual(decision, "abstain")
+
+
+class FixedConflictDetector:
+    def detect(self, evidence):
+        return 0.93, [
+            EvidenceConflict(
+                left_chunk_id="c1",
+                right_chunk_id="c2",
+                left_text="The intervention works.",
+                right_text="The intervention does not work.",
+                confidence=0.93,
+            )
+        ]
+
+
 class PipelineTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -127,6 +170,17 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(report.decision, "abstain")
         self.assertIsNone(report.answer)
         self.assertEqual(report.risk_score, 1.0)
+
+    def test_conflict_withholds_definitive_answer(self):
+        pipeline = FairTrustRAG()
+        pipeline.ingest(self.temp_dir.name)
+        pipeline.conflict_detector = FixedConflictDetector()
+        report = pipeline.ask("What is the capital of France?")
+        self.assertEqual(report.decision, "show_conflict")
+        self.assertIsNone(report.answer)
+        self.assertEqual(report.citations, [])
+        self.assertEqual(report.risk_score, 0.93)
+        self.assertEqual(len(report.conflicts), 1)
 
 
 if __name__ == "__main__":

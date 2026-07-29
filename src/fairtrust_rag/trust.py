@@ -30,21 +30,33 @@ def calculate_risk(
     return max(0.0, min(1.0, risk))
 
 
-def apply_safety_gates(risk: float, evidence_sufficient: bool) -> float:
-    """Convert a failed mandatory safety gate into maximum reported risk.
+def apply_safety_gates(
+    risk: float, evidence_sufficient: bool, conflict_score: float = 0.0
+) -> float:
+    """Apply mandatory evidence gates to the reported risk.
 
     The weighted score measures soft signals. Evidence relevance is a hard
     prerequisite: an answer cannot be reliable when no retrieved passage meets
-    the configured minimum.
+    the configured minimum. Detected conflict establishes a risk floor equal
+    to its confidence.
     """
-    return risk if evidence_sufficient else 1.0
+    return max(risk, conflict_score) if evidence_sufficient else 1.0
 
 
 def decide(
-    risk: float, maximum_answer_risk: float, evidence_sufficient: bool = True
+    risk: float,
+    maximum_answer_risk: float,
+    evidence_sufficient: bool = True,
+    conflict_detected: bool = False,
 ) -> Tuple[str, str]:
     if not evidence_sufficient:
         return "abstain", "No retrieved passage met the minimum relevance threshold."
+    if conflict_detected:
+        return (
+            "show_conflict",
+            "Retrieved evidence contains a high-confidence contradiction; "
+            "a definitive answer has been withheld.",
+        )
     if risk <= maximum_answer_risk:
         return "answer", "Retrieved evidence supports the answer within the configured risk limit."
     return "abstain", "The available evidence does not support a sufficiently reliable answer."

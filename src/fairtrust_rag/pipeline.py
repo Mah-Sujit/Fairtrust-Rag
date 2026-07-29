@@ -73,9 +73,13 @@ class FairTrustRAG:
             retrieved
             and retrieved[0].score >= self.settings.minimum_retrieval_score
         )
-        risk = apply_safety_gates(risk, evidence_sufficient)
+        conflict_detected = bool(conflicts)
+        risk = apply_safety_gates(risk, evidence_sufficient, conflict_score)
         decision, reason = decide(
-            risk, self.settings.maximum_answer_risk, evidence_sufficient
+            risk,
+            self.settings.maximum_answer_risk,
+            evidence_sufficient,
+            conflict_detected,
         )
         return TrustReport(
             question=question,
