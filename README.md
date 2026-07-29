@@ -99,6 +99,11 @@ chunks are compared before generation. The trust report includes the maximum
 `conflict_score` and every sentence pair above
 `minimum_conflict_confidence`. `maximum_conflict_pairs` bounds runtime.
 
+The controller treats a detected contradiction as a separate outcome:
+`decision` becomes `show_conflict`, the definitive answer and citations are
+withheld, and the report exposes both conflicting sentences. Conflict
+confidence also becomes the minimum reported risk for that response.
+
 The baseline risk is:
 
 ```text
