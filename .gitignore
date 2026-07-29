@@ -1,4 +1,7 @@
 .venv/
+.venv-python39/
+.venv-python39-backup/
+.model-cache/
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -6,4 +9,3 @@ __pycache__/
 build/
 dist/
 results/
-

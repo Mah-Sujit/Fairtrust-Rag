@@ -1,4 +1,4 @@
-"""Dependency-free baseline embeddings."""
+"""Embedding interfaces and local implementations."""
 
 import hashlib
 import math
@@ -32,3 +32,22 @@ class HashingEmbedder(Embedder):
         norm = math.sqrt(sum(item * item for item in vector))
         return [item / norm for item in vector] if norm else vector
 
+
+class SentenceTransformerEmbedder(Embedder):
+    """Semantic embeddings backed by a Sentence Transformers model."""
+
+    def __init__(
+        self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    ) -> None:
+        try:
+            from sentence_transformers import SentenceTransformer
+        except ImportError as exc:
+            raise RuntimeError(
+                'Semantic embeddings require: pip install -e ".[semantic]"'
+            ) from exc
+        self.model_name = model_name
+        self.model = SentenceTransformer(model_name)
+
+    def embed(self, text: str) -> List[float]:
+        vector = self.model.encode(text, normalize_embeddings=True)
+        return vector.tolist()

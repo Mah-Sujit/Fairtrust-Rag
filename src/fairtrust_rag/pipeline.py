@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 from .config import Settings
-from .embeddings import HashingEmbedder
+from .embeddings import HashingEmbedder, SentenceTransformerEmbedder
 from .generation import AnswerGenerator, ExtractiveAnswerGenerator
 from .ingestion import chunk_documents, load_documents
 from .models import TrustReport
@@ -20,9 +20,11 @@ class FairTrustRAG:
         generator: Optional[AnswerGenerator] = None,
     ) -> None:
         self.settings = settings or Settings()
-        self.store = InMemoryVectorStore(
-            HashingEmbedder(self.settings.embedding_dimensions)
-        )
+        if self.settings.embedding_provider == "sentence_transformers":
+            embedder = SentenceTransformerEmbedder(self.settings.embedding_model)
+        else:
+            embedder = HashingEmbedder(self.settings.embedding_dimensions)
+        self.store = InMemoryVectorStore(embedder)
         self.generator = generator or ExtractiveAnswerGenerator()
         self.verifier = LexicalEvidenceVerifier(self.settings.minimum_claim_support)
 

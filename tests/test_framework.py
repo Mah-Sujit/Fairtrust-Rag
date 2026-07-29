@@ -15,6 +15,12 @@ class IngestionTests(unittest.TestCase):
         self.assertEqual(chunks[0].metadata["kind"], "test")
 
 
+class ConfigurationTests(unittest.TestCase):
+    def test_unknown_embedding_provider_is_rejected(self):
+        with self.assertRaises(ValueError):
+            Settings(embedding_provider="unknown")
+
+
 class PipelineTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -45,4 +51,3 @@ class PipelineTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

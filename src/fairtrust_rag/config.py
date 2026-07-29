@@ -10,6 +10,8 @@ from typing import Dict, Union
 class Settings:
     chunk_size: int = 500
     chunk_overlap: int = 80
+    embedding_provider: str = "hashing"
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     embedding_dimensions: int = 384
     top_k: int = 3
     minimum_retrieval_score: float = 0.08
@@ -30,6 +32,10 @@ class Settings:
             raise ValueError("chunk_overlap must be between 0 and chunk_size")
         if self.embedding_dimensions <= 0 or self.top_k <= 0:
             raise ValueError("embedding_dimensions and top_k must be positive")
+        if self.embedding_provider not in {"hashing", "sentence_transformers"}:
+            raise ValueError(
+                "embedding_provider must be 'hashing' or 'sentence_transformers'"
+            )
         if not 0 <= self.maximum_answer_risk <= 1:
             raise ValueError("maximum_answer_risk must be between 0 and 1")
         if abs(sum(self.risk_weights.values()) - 1.0) > 1e-6:
@@ -39,4 +45,3 @@ class Settings:
     def from_json(cls, path: Union[str, Path]) -> "Settings":
         with Path(path).open(encoding="utf-8") as handle:
             return cls(**json.load(handle))
-
