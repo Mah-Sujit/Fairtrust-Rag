@@ -10,3 +10,5 @@ build/
 dist/
 results/
 data/indexes/
+data/external/
+data/benchmarks/
