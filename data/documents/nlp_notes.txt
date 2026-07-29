@@ -1,0 +1,5 @@
+Natural Language Processing is a branch of artificial intelligence that enables computers to process human language.
+
+Retrieval-Augmented Generation combines information retrieval with language generation. It retrieves relevant documents before producing an answer.
+
+A trustworthy RAG system should abstain when the available evidence is insufficient or irrelevant.

@@ -1,0 +1,15 @@
+{
+  "chunk_size": 500,
+  "chunk_overlap": 80,
+  "embedding_dimensions": 384,
+  "top_k": 3,
+  "minimum_retrieval_score": 0.30,
+  "minimum_claim_support": 0.18,
+  "maximum_answer_risk": 0.55,
+  "risk_weights": {
+    "retrieval": 0.35,
+    "unsupported_claims": 0.55,
+    "citation": 0.10
+  }
+}
+

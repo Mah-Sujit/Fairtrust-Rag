@@ -1,0 +1,4 @@
+Retrieval-augmented generation combines document retrieval with language generation.
+The retriever selects relevant passages from a knowledge base before an answer is produced.
+A trustworthy system should abstain when the available evidence is insufficient.
+

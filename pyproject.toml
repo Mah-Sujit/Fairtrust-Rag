@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fairtrust-rag"
+version = "0.1.0"
+description = "Minimal risk-controlled and explainable retrieval-augmented generation framework"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+fairtrust-rag = "fairtrust_rag.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

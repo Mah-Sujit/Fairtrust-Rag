@@ -1,0 +1,40 @@
+"""Risk scoring and selective-answering policy."""
+
+from typing import Mapping, Sequence, Tuple
+
+from .models import ClaimVerification, GeneratedAnswer, SearchResult
+
+
+def calculate_risk(
+    retrieved: Sequence[SearchResult],
+    claims: Sequence[ClaimVerification],
+    answer: GeneratedAnswer,
+    minimum_retrieval_score: float,
+    weights: Mapping[str, float],
+) -> float:
+    best_score = retrieved[0].score if retrieved else 0.0
+    retrieval_risk = 1.0 - min(1.0, best_score / max(minimum_retrieval_score, 1e-9))
+    unsupported_risk = (
+        sum(claim.status != "supported" for claim in claims) / len(claims)
+        if claims else 1.0
+    )
+    supported_ids = {
+        claim.evidence_chunk_id for claim in claims if claim.evidence_chunk_id
+    }
+    citation_risk = 0.0 if supported_ids.intersection(answer.citations) else 1.0
+    risk = (
+        weights["retrieval"] * retrieval_risk
+        + weights["unsupported_claims"] * unsupported_risk
+        + weights["citation"] * citation_risk
+    )
+    return max(0.0, min(1.0, risk))
+
+
+def decide(
+    risk: float, maximum_answer_risk: float, evidence_sufficient: bool = True
+) -> Tuple[str, str]:
+    if not evidence_sufficient:
+        return "abstain", "No retrieved passage met the minimum relevance threshold."
+    if risk <= maximum_answer_risk:
+        return "answer", "Retrieved evidence supports the answer within the configured risk limit."
+    return "abstain", "The available evidence does not support a sufficiently reliable answer."
